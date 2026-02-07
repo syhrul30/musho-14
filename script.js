@@ -9237,10 +9237,11 @@ document.addEventListener('DOMContentLoaded', function() {
            // Kita gunakan data-article-index agar bisa diklik (jika di buku yang sama)
            lastReadItem.dataset.articleIndex = lastRead.articleIndex;
            lastReadItem.dataset.segmentIndex = lastRead.segmentIndex;
-           lastReadItem.dataset.isLastRead = "true"; // Marker khusus
+            lastReadItem.dataset.isLastRead = "true"; // Marker khusus
+          lastReadItem.dataset.bookTitle = lastRead.bookTitle; // Simpan judul buku di dataset
  
-           lastReadItem.innerHTML = `
-               <div class="last-read-badge">Terakhir Dibaca</div>
+            lastReadItem.innerHTML = `
+                <div class="last-read-badge">Terakhir Dibaca</div>
                <div class="vocab-item-book">${lastRead.bookTitle}</div>
                <div class="vocab-item-original">${lastRead.original}</div>
                <div class="vocab-item-translation">${lastRead.translation}</div>
@@ -9270,9 +9271,10 @@ document.addEventListener('DOMContentLoaded', function() {
            
            // Fallback untuk item lama yang mungkin belum punya bookTitle
            const bookLabel = item.bookTitle || currentBookTitle; 
+          listItem.dataset.bookTitle = bookLabel; // Simpan judul buku di dataset
  
-             listItem.innerHTML = `
-               <div class="vocab-item-book">${bookLabel}</div>
+              listItem.innerHTML = `
+                <div class="vocab-item-book">${bookLabel}</div>
                  <div class="vocab-item-original">${item.original}</div>
                 <div class="vocab-item-translation">${item.translation}</div>
                 <div class="vocab-item-source">Sumber: ${item.title}</div>
@@ -9363,15 +9365,16 @@ document.addEventListener('DOMContentLoaded', function() {
             vocabulary.splice(vocabIndex, 1);
             localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
             renderVocabulary();
-         } else {
-           // [v5.6 Update] Prevent click error if Last Read is from another book
-           if (vocabItem.classList.contains('last-read') && lastRead.bookTitle !== currentBookTitle) {
-               alert(`Item ini berasal dari buku lain: "${lastRead.bookTitle}". Silakan buka buku tersebut untuk meloncat ke lokasi.`);
-               return;
-           }
+          } else {
+          // [v5.6 Update] Cek judul buku untuk SEMUA item (Last Read & Manual)
+          const targetBookTitle = vocabItem.dataset.bookTitle;
+          if (targetBookTitle && targetBookTitle !== currentBookTitle) {
+              alert(`⚠️ PINDAH BUKU DIPERLUKAN\n\nBookmark ini berada di buku: "${targetBookTitle}".\n\nSilakan buka halaman buku tersebut untuk mengaksesnya.`);
+              return;
+          }
  
-             const articleIndex = vocabItem.dataset.articleIndex;
-             const segmentIndex = vocabItem.dataset.segmentIndex;
+              const articleIndex = vocabItem.dataset.articleIndex;
+              const segmentIndex = vocabItem.dataset.segmentIndex;
              const targetArticle = document.querySelector(`.article-container[data-article-index="${articleIndex}"]`);
 
             if (targetArticle) {
