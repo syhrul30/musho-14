@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============ DATA ARTIKEL ASLI (DIKEMBALIKAN) ==================
     // ================================================================
     const articlesData = [
-        {
+      {
             title: "Chapter 7: An Audience with the Immortal Demon King",
             original: [ 
                      "Chapter 7:An Audience with the Immortal Demon King",
@@ -8933,11 +8933,10 @@ document.addEventListener('DOMContentLoaded', function() {
   "Itu adalah simfoni umum yang berdering di Tempat Suci Pedang setiap hari, dan saat keduanya berlatih, irama ritmis itu pun berlanjut."
             ]
         }
-        
-    ];
+       ];
 
     /*
-{
+        {
             title: "Artikel Utama Pertama",
             original: [ "Ini adalah konten dari artikel dengan gaya utama atau standar." ],
             translation: [ "This is the content of an article with the main or standard style." ]
@@ -8948,7 +8947,7 @@ document.addEventListener('DOMContentLoaded', function() {
             original: [
                 "Artikel ini independen, namun tampilannya dibuat berbeda (menjorok dan lebih kecil) karena memiliki penanda 'type'.",
                 { text: 'Semua fitur seperti italic dan pop-up tetap berfungsi normal.', style: 'italic' },
-                { type: 'image', src: 'https://placehold.co/600x400/0f172a/40e0d0?text=Gambar+Contoh', alt: 'Sebuah gambar contoh' }
+                { type: 'image', src: 'https://placehold.co/600x400/e11d48/fff1f2?text=Gambar+Contoh', alt: 'Sebuah gambar contoh' }
             ],
             translation: [
                 "This article is independent, but its appearance is made different (indented and smaller) because it has the 'type' flag.",
@@ -8958,13 +8957,13 @@ document.addEventListener('DOMContentLoaded', function() {
         {
             title: "Artikel Sekunder 1.2",
             type: 'sub-article',
-            original: [ "Konten placeholder untuk sub artikel 1.2" ], // Saya isi placeholder agar tidak kosong
-            translation: [ "Placeholder content for sub article 1.2" ]
+            original: [],
+            translation: []
         },
         {
             title: "Artikel Utama Kedua",
-            original: [ "Konten placeholder untuk artikel utama kedua." ], // Saya isi placeholder agar tidak kosong
-            translation: [ "Placeholder content for second main article." ]
+            original: [],
+            translation: []
         }
     */
   
@@ -8991,10 +8990,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // ================ INISIALISASI & STATE MANAGEMENT ===============
     // ================================================================
     const savedFontSize = localStorage.getItem('fontSize') || '3';
-    const savedActiveArticles = JSON.parse(localStorage.getItem('activeArticles')) || [];
-    let vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
-
-    let currentScale = 1;
+     const savedActiveArticles = JSON.parse(localStorage.getItem('activeArticles')) || [];
+   // [v5.6 Update] Standardized Variables for Cross-Book Save
+   const currentBookTitle = document.querySelector('h1') ? document.querySelector('h1').innerText.trim() : 'Unknown Book';
+   let lastRead = JSON.parse(localStorage.getItem('lastRead')) || null;
+   // [v5.6 Update] End
+     let vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
+ 
+     let currentScale = 1;
     let translateX = 0;
     let translateY = 0;
     let isPanning = false;
@@ -9172,10 +9175,35 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof translationSegment === 'object') translationSegment = translationSegment.text;
 
         if (!translationSegment) { hidePopup(); return; }
-
-        const isAlreadyAdded = vocabulary.some(item => item.original === originalSegment);
-        const addedClass = isAlreadyAdded ? 'added' : '';
-        const buttonIcon = isAlreadyAdded ? 
+ 
+       // ================================================================
+       // [v5.6 Update] SAFETY NET LOGIC & AUTO-SAVE (Last Read)
+       // ================================================================
+       // 1. Cek apakah ada LastRead lama dari BUKU LAIN?
+       if (lastRead && lastRead.bookTitle !== currentBookTitle) {
+           // Jika belum ada di vocabulary manual, selamatkan data lama ke sana
+           const isDuplicate = vocabulary.some(item => item.original === lastRead.original);
+           if (!isDuplicate) {
+               vocabulary.unshift(lastRead);
+               localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
+           }
+       }
+ 
+       // 2. Update Last Read dengan segmen yang baru diklik
+       lastRead = {
+           original: originalSegment,
+           translation: translationSegment,
+           bookTitle: currentBookTitle,
+           title: articlesData[articleIndex].title,
+           articleIndex: articleIndex,
+           segmentIndex: segmentIndex
+       };
+       localStorage.setItem('lastRead', JSON.stringify(lastRead));
+       renderVocabulary(); // Refresh sidebar agar Last Read muncul di atas
+ 
+         const isAlreadyAdded = vocabulary.some(item => item.original === originalSegment);
+         const addedClass = isAlreadyAdded ? 'added' : '';
+         const buttonIcon = isAlreadyAdded ? 
             `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>` : 
             `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
 
@@ -9200,20 +9228,52 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function renderVocabulary() {
-        vocabList.innerHTML = ''; 
-        if (vocabulary.length === 0) {
-            vocabList.innerHTML = '<li class="empty-vocab-message">Grimoire ini masih kosong. Mulailah membaca untuk mengisinya.</li>';
-            return;
-        }
-
-        vocabulary.forEach((item, index) => {
-            const listItem = document.createElement('li');
-            listItem.className = 'vocab-item';
-            listItem.dataset.articleIndex = item.articleIndex;
-            listItem.dataset.vocabIndex = index;
-            listItem.dataset.segmentIndex = item.segmentIndex;
-            listItem.innerHTML = `
-                <div class="vocab-item-original">${item.original}</div>
+         vocabList.innerHTML = ''; 
+       
+       // [v5.6 Update] Render Last Read (Auto-Save) Section
+       if (lastRead) {
+           const lastReadItem = document.createElement('li');
+           lastReadItem.className = 'vocab-item last-read';
+           // Kita gunakan data-article-index agar bisa diklik (jika di buku yang sama)
+           lastReadItem.dataset.articleIndex = lastRead.articleIndex;
+           lastReadItem.dataset.segmentIndex = lastRead.segmentIndex;
+           lastReadItem.dataset.isLastRead = "true"; // Marker khusus
+ 
+           lastReadItem.innerHTML = `
+               <div class="last-read-badge">Terakhir Dibaca</div>
+               <div class="vocab-item-book">${lastRead.bookTitle}</div>
+               <div class="vocab-item-original">${lastRead.original}</div>
+               <div class="vocab-item-translation">${lastRead.translation}</div>
+               <div class="vocab-item-source">Bab: ${lastRead.title}</div>
+           `;
+           vocabList.appendChild(lastReadItem);
+       }
+ 
+       // [v5.6 Update] Separator
+       if (vocabulary.length > 0) {
+           const divider = document.createElement('div');
+           divider.className = 'vocab-divider';
+           divider.textContent = 'TERSIMPAN MANUAL';
+           vocabList.appendChild(divider);
+       } else if (!lastRead) {
+             vocabList.innerHTML = '<li class="empty-vocab-message">Grimoire ini masih kosong. Mulailah membaca untuk mengisinya.</li>';
+             return;
+         }
+ 
+       // [v5.6 Update] Render Manual Vocabulary
+         vocabulary.forEach((item, index) => {
+             const listItem = document.createElement('li');
+             listItem.className = 'vocab-item';
+             listItem.dataset.articleIndex = item.articleIndex;
+             listItem.dataset.vocabIndex = index;
+             listItem.dataset.segmentIndex = item.segmentIndex;
+           
+           // Fallback untuk item lama yang mungkin belum punya bookTitle
+           const bookLabel = item.bookTitle || currentBookTitle; 
+ 
+             listItem.innerHTML = `
+               <div class="vocab-item-book">${bookLabel}</div>
+                 <div class="vocab-item-original">${item.original}</div>
                 <div class="vocab-item-translation">${item.translation}</div>
                 <div class="vocab-item-source">Sumber: ${item.title}</div>
                 <button class="delete-vocab-btn" title="Hapus Bookmark">&times;</button>
@@ -9227,9 +9287,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         vocabulary.unshift({
-            original: original,
-            translation: translation,
-            title: articlesData[articleIndex].title,
+           bookTitle: currentBookTitle, // [v5.6 Update] Save Book Title
+             original: original,
+             translation: translation,
+             title: articlesData[articleIndex].title,
             articleIndex: articleIndex,
             segmentIndex: segmentIndex
         });
@@ -9302,10 +9363,16 @@ document.addEventListener('DOMContentLoaded', function() {
             vocabulary.splice(vocabIndex, 1);
             localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
             renderVocabulary();
-        } else {
-            const articleIndex = vocabItem.dataset.articleIndex;
-            const segmentIndex = vocabItem.dataset.segmentIndex;
-            const targetArticle = document.querySelector(`.article-container[data-article-index="${articleIndex}"]`);
+         } else {
+           // [v5.6 Update] Prevent click error if Last Read is from another book
+           if (vocabItem.classList.contains('last-read') && lastRead.bookTitle !== currentBookTitle) {
+               alert(`Item ini berasal dari buku lain: "${lastRead.bookTitle}". Silakan buka buku tersebut untuk meloncat ke lokasi.`);
+               return;
+           }
+ 
+             const articleIndex = vocabItem.dataset.articleIndex;
+             const segmentIndex = vocabItem.dataset.segmentIndex;
+             const targetArticle = document.querySelector(`.article-container[data-article-index="${articleIndex}"]`);
 
             if (targetArticle) {
                 if (!targetArticle.classList.contains('active')) {
@@ -9366,11 +9433,13 @@ document.addEventListener('DOMContentLoaded', function() {
     vocabToggleButton.addEventListener('click', () => vocabSidebar.classList.toggle('visible'));
     clearVocabButton.addEventListener('click', () => { 
         if (confirm('Kosongkan seluruh isi Grimoire? Tindakan ini tidak dapat dibatalkan.')) {
-            vocabulary = [];
-            localStorage.removeItem('vocabulary');
-            renderVocabulary();
-        }
-     });
+             vocabulary = [];
+             localStorage.removeItem('vocabulary');
+           lastRead = null; // Clear last read too
+           localStorage.removeItem('lastRead');
+             renderVocabulary();
+         }
+      });
 
     previewCloseButton.addEventListener('click', closeImagePreview);
     zoomInButton.addEventListener('click', () => { currentScale += 0.2; applyImageTransform(); });
